@@ -271,9 +271,11 @@ func getAPIRooms(w http.ResponseWriter, r *http.Request) {
 			Strokes:      []Stroke{},
 			StrokeCount:  strokeCount,
 		}
+		log.Println(room)
 		rooms = append(rooms, room)
 	}
 	rows.Close()
+	log.Println(rooms)
 	for i, r := range rooms {
 		cnt, err := getWatcherCount(r.ID)
 		if err != nil {
