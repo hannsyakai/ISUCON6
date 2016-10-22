@@ -127,9 +127,3 @@ func endProf(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error() + "\n"))
 	}
 }
-
-func init() {
-	log.Println("add handler /startprof /endprof")
-	http.HandleFunc("/startprof", starProf)
-	http.HandleFunc("/endprof", endProf)
-}
