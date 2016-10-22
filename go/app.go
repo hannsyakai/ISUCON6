@@ -167,7 +167,7 @@ func createImage(roomID int64, width int, height int) error {
 	_, err := dbx.Exec(query, roomID, a)
 	return err
 }
-func appendImage(roomID int64, stroke Stroke) error {
+func appendImage(roomID int64, stroke Stroke, strokeID int64) error {
 	var m2 bytes.Buffer
 	var s string
 
@@ -176,7 +176,7 @@ func appendImage(roomID int64, stroke Stroke) error {
 		m2.Write([]byte(s))
 	}
 b , _ := getImage(roomID)
-	a := fmt.Sprintf(`%s<polyline id="%d" stroke="rgba(%d,%d,%d,%f)" stroke-width="%d" stroke-linecap="round" fill="none" points="%s"></polyline>`, b , stroke.ID, stroke.Red, stroke.Green, stroke.Blue, stroke.Alpha, stroke.Width, m2.String())
+	a := fmt.Sprintf(`%s<polyline id="%d" stroke="rgba(%d,%d,%d,%f)" stroke-width="%d" stroke-linecap="round" fill="none" points="%s"></polyline>`, b , strokeID, stroke.Red, stroke.Green, stroke.Blue, stroke.Alpha, stroke.Width, m2.String())
 
 	query := "UPDATE img SET img = ? where room_id = ?"
 	_, err := dbx.Exec(query, a, roomID)
@@ -624,7 +624,7 @@ func postAPIStrokesRoomsID(ctx context.Context, w http.ResponseWriter, r *http.R
 		tx.MustExec(query, strokeID, p.X, p.Y)
 	}
 
-	err = appendImage(room.ID, postedStroke)
+	err = appendImage(room.ID, postedStroke, strokeID)
 	if err != nil {
 		outputError(w, err)
 		return
