@@ -9,7 +9,6 @@ import { match, RouterContext } from 'react-router';
 import routes from './routes';
 import AsyncProps, { loadPropsOnServer } from 'async-props';
 import fetchJson from './util/fetch-json';
-import proxy from 'http-proxy-middleware';
 import Canvas from './components/Canvas';
 
 // for material-ui https://www.npmjs.com/package/material-ui
@@ -22,10 +21,6 @@ if (!apiBaseUrl) {
 }
 
 const app = express();
-
-app.use(express.static('public'));
-
-app.use('/api/*', proxy({ target: apiBaseUrl, changeOrigin: true }));
 
 app.get('/img/:id', (req, res) => {
   fetchJson(`${apiBaseUrl}/api/rooms/${req.params.id}`)
