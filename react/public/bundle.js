@@ -41483,7 +41483,7 @@
 	          alpha: this.state.alpha,
 	          width: this.state.strokeWidth,
 	          points: [point]
-	        },
+	        }
 	      });
 	    }
 	  }, {
