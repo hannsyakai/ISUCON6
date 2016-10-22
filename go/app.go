@@ -139,8 +139,7 @@ func getRoom(roomID int64) (*Room, error) {
 }
 
 func getWatcherCount(roomID int64) (int, error) {
-	query := "SELECT COUNT(*) AS `watcher_count` FROM `room_watchers`"
-	query += " WHERE `room_id` = ? AND `updated_at` > CURRENT_TIMESTAMP(6) - INTERVAL 3 SECOND"
+	query := "SELECT `watcher_count` FROM `rooms2` WHERE `id` = ? AND `updated_at` > CURRENT_TIMESTAMP(6) - INTERVAL 3 SECOND"
 
 	var watcherCount int
 	err := dbx.QueryRow(query, roomID).Scan(&watcherCount)
@@ -154,10 +153,27 @@ func getWatcherCount(roomID int64) (int, error) {
 }
 
 func updateRoomWatcher(roomID int64, tokenID int64) error {
-	query := "INSERT INTO `room_watchers` (`room_id`, `token_id`) VALUES (?, ?)"
-	query += " ON DUPLICATE KEY UPDATE `updated_at` = CURRENT_TIMESTAMP(6)"
+	isExsit := true
+	q := "SELECT room_id FROM `room_watchers` WHERE `room_id` = ? AND `token_id` = ?"
+	_, err := dbx.Exec(q, roomID, tokenID)
+	if err == sql.ErrNoRows {
+		isExsit = false
+	}
+	query := "INSERT INTO `room_watchers` (`room_id`, `token_id`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `updated_at` = CURRENT_TIMESTAMP(6)"
+	_, err = dbx.Exec(query, roomID, tokenID)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
 
-	_, err := dbx.Exec(query, roomID, tokenID)
+	if !isExsit {
+		q = "UPDATE `rooms2` SET room_watchers = room_watchers + 1 WHERE `id` = ?"
+		_, err := dbx.Exec(q, roomID)
+		if err != nil {
+			return err
+		}
+	}
+
 	return err
 }
 
@@ -303,10 +319,10 @@ func postAPIRooms(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx := dbx.MustBegin()
-	query := "INSERT INTO `rooms2` (`name`, `canvas_width`, `canvas_height`)"
-	query += " VALUES (?, ?, ?)"
+	query := "INSERT INTO `rooms2` (`name`, `canvas_width`, `canvas_height`, `watchers_count`, `owner_id`)"
+	query += " VALUES (?, ?, ?, ?)"
 
-	result := tx.MustExec(query, postedRoom.Name, postedRoom.CanvasWidth, postedRoom.CanvasHeight)
+	result := tx.MustExec(query, postedRoom.Name, postedRoom.CanvasWidth, postedRoom.CanvasHeight, 0, t.ID)
 	roomID, err := result.LastInsertId()
 	if err != nil {
 		outputError(w, err)
