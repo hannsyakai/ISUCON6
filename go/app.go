@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -160,6 +161,40 @@ func updateRoomWatcher(roomID int64, tokenID int64) error {
 	return err
 }
 
+func createImage(roomID int64) error {
+	query := "INSERT INTO img(room_id, img) values(?, ?)"
+	_, err := dbx.Exec(query, roomID, `<?xml version="1.0" standalone="no"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">`)
+	return err
+}
+
+func appendImage(roomID int64, stroke Stroke) error {
+	var m2 bytes.Buffer
+	var s string
+
+	for _, p := range stroke.Points {
+		s = fmt.Sprintf("%f, %f ", p.X, p.Y)
+		m2.Write([]byte(s))
+	}
+
+	a := fmt.Sprintf(`<polyline id="%s" stroke="rgba(%d%d%d%f)" stroke-width="%d" stroke-linecap="round" fill="none" points="%s"></polyline>'`, stroke.ID, stroke.Red, stroke.Green, stroke.Blue, stroke.Alpha, m2.String())
+
+	query := "UPDATE img SET img = ? where room_id = ?"
+	_, err := dbx.Exec(query, a, roomID)
+	return err
+}
+
+func getImage(roomID int64) (string, error) {
+	query := "SELECT img FROM img where room_id = ?"
+	var img string
+	err := dbx.QueryRow(query, roomID).Scan(&img)
+	if err != nil && err != sql.ErrNoRows {
+		return "", err
+	}
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return img, nil
+}
 func outputErrorMsg(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 
@@ -305,6 +340,12 @@ func postAPIRooms(w http.ResponseWriter, r *http.Request) {
 	query = "INSERT INTO `room_owners` (`room_id`, `token_id`) VALUES (?, ?)"
 	tx.MustExec(query, roomID, t.ID)
 
+	err = createImage(roomID)
+	if err != nil {
+		outputError(w, err)
+		return
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		tx.Rollback()
@@ -324,6 +365,30 @@ func postAPIRooms(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	w.WriteHeader(http.StatusOK)
+	w.Write(b)
+}
+
+func getIMGRoomsID(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	idStr := pat.Param(ctx, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		outputErrorMsg(w, http.StatusNotFound, "この部屋は存在しません。")
+		return
+	}
+
+	img, err := getImage(id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			outputErrorMsg(w, http.StatusNotFound, "この部屋は存在しません。")
+		} else {
+			outputError(w, err)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/svg+xml")
+	w.WriteHeader(http.StatusOK)
+	b := []byte(img + "</svg>")
 	w.Write(b)
 }
 
@@ -559,6 +624,12 @@ func postAPIStrokesRoomsID(ctx context.Context, w http.ResponseWriter, r *http.R
 		tx.MustExec(query, strokeID, p.X, p.Y)
 	}
 
+	err = appendImage(room.ID, postedStroke)
+	if err != nil {
+		outputError(w, err)
+		return
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		tx.Rollback()
@@ -653,6 +724,7 @@ func main() {
 	mux.HandleFunc(pat.Get("/api/rooms"), getAPIRooms)
 	mux.HandleFunc(pat.Post("/api/rooms"), postAPIRooms)
 	mux.HandleFuncC(pat.Get("/api/rooms/:id"), getAPIRoomsID)
+	mux.HandleFuncC(pat.Get("/api/rooms/:id"), getIMGRoomsID)
 	mux.HandleFuncC(pat.Get("/api/stream/rooms/:id"), getAPIStreamRoomsID)
 	mux.HandleFuncC(pat.Post("/api/strokes/rooms/:id"), postAPIStrokesRoomsID)
 
