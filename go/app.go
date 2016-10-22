@@ -77,17 +77,10 @@ func printAndFlush(w http.ResponseWriter, content string) {
 	f.Flush()
 }
 
-var defaultToken *Token = &Token{
-	ID:        50000,
-	CSRFToken: "token",
-	CreatedAt: time.Now(),
-}
-
 func checkToken(csrfToken string) (*Token, error) {
 	if csrfToken == "" {
 		return nil, nil
 	}
-	return defaultToken, nil
 
 	query := "SELECT `id`, `csrf_token`, `created_at` FROM `tokens`"
 	query += " WHERE `csrf_token` = ? AND `created_at` > CURRENT_TIMESTAMP(6) - INTERVAL 1 DAY"
@@ -190,44 +183,36 @@ func outputError(w http.ResponseWriter, err error) {
 }
 
 func postAPICsrfToken(w http.ResponseWriter, r *http.Request) {
+	query := "INSERT INTO `tokens` (`csrf_token`) VALUES"
+	query += " (SHA2(CONCAT(RAND(), UUID_SHORT()), 256))"
+
+	result, err := dbx.Exec(query)
+	if err != nil {
+		outputError(w, err)
+		return
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		outputError(w, err)
+		return
+	}
+
+	t := Token{}
+	query = "SELECT `id`, `csrf_token`, `created_at` FROM `tokens` WHERE id = ?"
+	err = dbx.Get(&t, query, id)
+	if err != nil {
+		outputError(w, err)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 
 	b, _ := json.Marshal(struct {
 		Token string `json:"token"`
-	}{Token: defaultToken.CSRFToken})
+	}{Token: t.CSRFToken})
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(b)
-	// query := "INSERT INTO `tokens` (`csrf_token`) VALUES"
-	// query += " (SHA2(CONCAT(RAND(), UUID_SHORT()), 256))"
-	//
-	// result, err := dbx.Exec(query)
-	// if err != nil {
-	// 	outputError(w, err)
-	// 	return
-	// }
-	//
-	// id, err := result.LastInsertId()
-	// if err != nil {
-	// 	outputError(w, err)
-	// 	return
-	// }
-	//
-	// t := Token{}
-	// query = "SELECT `id`, `csrf_token`, `created_at` FROM `tokens` WHERE id = ?"
-	// err = dbx.Get(&t, query, id)
-	// if err != nil {
-	// 	outputError(w, err)
-	// 	return
-	// }
-	// w.Header().Set("Content-Type", "application/json;charset=utf-8")
-	//
-	// b, _ := json.Marshal(struct {
-	// 	Token string `json:"token"`
-	// }{Token: t.CSRFToken})
-	//
-	// w.WriteHeader(http.StatusOK)
-	// w.Write(b)
 }
 
 func getAPIRooms(w http.ResponseWriter, r *http.Request) {
