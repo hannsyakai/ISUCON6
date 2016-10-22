@@ -95,6 +95,7 @@ class Room extends React.Component {
         width: this.state.strokeWidth,
         points: [point],
       },
+      hoge: 123,
     });
   }
 
