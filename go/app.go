@@ -634,5 +634,7 @@ func main() {
 	mux.HandleFuncC(pat.Get("/api/stream/rooms/:id"), getAPIStreamRoomsID)
 	mux.HandleFuncC(pat.Post("/api/strokes/rooms/:id"), postAPIStrokesRoomsID)
 
+	StartProfile(time.Minute + time.Second*30)
+
 	log.Fatal(http.ListenAndServe("0.0.0.0:8000", mux))
 }
