@@ -220,13 +220,13 @@ func postAPICsrfToken(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func inAPIRooms(ids []RoomsRes) string {
-	in := []string{}
+func inAPIRooms(ids []RoomsRes) (string, []int64) {
+	ints := []int64{}
 	for _, id := range ids {
-		i := strconv.FormatInt(id.RoomID, 10)
-		in = append(in, i)
+		ints = append(ints, id.RoomID)
 	}
-	return fmt.Sprintf("%s", strings.Join(in, ","))
+	holder := strings.Repeat("?,", len(ids))[:len(ids)*2-1]
+	return holder, ints
 }
 
 type RoomsRes struct {
@@ -247,10 +247,9 @@ func getAPIRooms(w http.ResponseWriter, r *http.Request) {
 		outputError(w, err)
 		return
 	}
-
-	q := fmt.Sprintf("SELECT rooms2.id, count(strokes.id), rooms2.name, rooms2.canvas_width, rooms2.canvas_height, rooms2.created_at FROM rooms2 INNER JOIN strokes ON strokes.room_id = rooms2.id WHERE rooms2.id IN ( %s ) GROUP BY rooms2.id", inAPIRooms(res))
-	log.Println(q)
-	rows, err := dbx.Query(q)
+	holder, ids := inAPIRooms(res)
+	q := fmt.Sprintf("SELECT rooms.id, count(strokes.id), rooms.name, rooms.canvas_width, rooms.canvas_height, rooms.created_at FROM rooms INNER JOIN strokes ON strokes.room_id = rooms.id WHERE rooms.id IN ( %s ) GROUP BY rooms.id", holder)
+	rows, err := dbx.Query(q, ids)
 	if err != nil {
 		outputError(w, err)
 		return
@@ -287,8 +286,9 @@ func getAPIRooms(w http.ResponseWriter, r *http.Request) {
 		rooms[i].WatcherCount = cnt
 	}
 
-	query := fmt.Sprintf("SELECT room_id, COUNT(*) AS `count` FROM `room_watchers` WHERE `room_id` IN ( %s ) AND `updated_at` > CURRENT_TIMESTAMP(6) - INTERVAL 3 SECOND GROUP BY room_id", inAPIRooms(res))
-	rows, err = dbx.Query(query)
+	holder, ids = inAPIRooms(res)
+	query := fmt.Sprintf("SELECT room_id, COUNT(*) AS `count` FROM `room_watchers` WHERE `room_id` IN ( %s ) AND `updated_at` > CURRENT_TIMESTAMP(6) - INTERVAL 3 SECOND GROUP BY room_id", holder)
+	rows, err = dbx.Query(query, ids)
 	if err != nil {
 		outputError(w, err)
 		return
