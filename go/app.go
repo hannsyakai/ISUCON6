@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -187,7 +188,7 @@ func postAPICsrfToken(w http.ResponseWriter, r *http.Request) {
 	token := strconv.Itoa(rand.Intn(10000000))
 	query := "INSERT INTO `tokens` (`csrf_token`) VALUES (?)"
 
-	result, err := dbx.Exec(query, token)
+	_, err := dbx.Exec(query, token)
 	if err != nil {
 		outputError(w, err)
 		return
@@ -203,39 +204,63 @@ func postAPICsrfToken(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func getAPIRooms(w http.ResponseWriter, r *http.Request) {
-	query := "SELECT `room_id`, MAX(`id`) AS `max_id` FROM `strokes`"
-	query += " GROUP BY `room_id` ORDER BY `max_id` DESC LIMIT 100"
+func inAPIRooms(ids []RoomsRes) string {
+	in := make([]string, len(ids))
+	for _, id := range ids {
+		i := strconv.FormatInt(id.RoomID, 10)
+		in = append(in, i)
+	}
+	return fmt.Sprintf("%s", strings.Join(in, ","))
+}
 
-	type result struct {
-		RoomID int64 `db:"room_id"`
-		MaxID  int64 `db:"max_id"`
+type RoomsRes struct {
+	RoomID int64 `db:"room_id"`
+	MaxID  int64 `db:"max_id"`
+}
+
+func getAPIRooms(w http.ResponseWriter, r *http.Request) {
+	res := []RoomsRes{}
+	subq := "SELECT `room_id` FROM `strokes` GROUP BY `room_id` ORDER BY MAX(id) DESC LIMIT 100"
+	err := dbx.Select(&res, subq)
+	if err != nil {
+		outputError(w, err)
+		return
 	}
 
-	results := []result{}
-
-	err := dbx.Select(&results, query)
+	q := fmt.Sprintf("SELECT rooms.id, count(strokes.id), rooms.name, rooms.canvas_width, rooms.canvas_height, rooms.created_at, rooms.strokes, rooms.watcher_count FROM rooms INNER JOIN strokes ON strokes.room_id = rooms.id WHERE rooms.id IN ( %s ) GROUP BY rooms.id", inAPIRooms(res))
+	log.Println(q)
+	rows, err := dbx.Query(q)
 	if err != nil {
 		outputError(w, err)
 		return
 	}
 
 	rooms := []*Room{}
+	for rows.Next() {
+		var id int64
+		var name string
+		var cW int
+		var cH int
+		var strokes []Stroke
+		var strokeCount int
+		var createdAt time.Time
+		var watcherCount int
 
-	for _, r := range results {
-		room, err := getRoom(r.RoomID)
-		if err != nil {
-			outputError(w, err)
-			return
+		err = rows.Scan(&id, &strokeCount, &name, &cW, &cH, &createdAt, &strokes, &watcherCount)
+
+		room := &Room{
+			ID:           id,
+			Name:         name,
+			CanvasWidth:  cW,
+			CanvasHeight: cH,
+			CreatedAt:    createdAt,
+			Strokes:      strokes,
+			StrokeCount:  strokeCount,
+			WatcherCount: watcherCount,
 		}
-		s, err := getStrokes(room.ID, 0)
-		if err != nil {
-			outputError(w, err)
-			return
-		}
-		room.StrokeCount = len(s)
 		rooms = append(rooms, room)
 	}
+	rows.Close()
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 
