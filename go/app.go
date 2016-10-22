@@ -227,7 +227,7 @@ func getAPIRooms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	q := fmt.Sprintf("SELECT rooms.id, count(strokes.id), rooms.name, rooms.canvas_width, rooms.canvas_height, rooms.created_at, rooms.strokes, rooms.watcher_count FROM rooms INNER JOIN strokes ON strokes.room_id = rooms.id WHERE rooms.id IN ( %s ) GROUP BY rooms.id", inAPIRooms(res))
+	q := fmt.Sprintf("SELECT rooms.id, count(strokes.id), rooms.name, rooms.canvas_width, rooms.canvas_height, rooms.created_at, rooms.watcher_count FROM rooms INNER JOIN strokes ON strokes.room_id = rooms.id WHERE rooms.id IN ( %s ) GROUP BY rooms.id", inAPIRooms(res))
 	log.Println(q)
 	rows, err := dbx.Query(q)
 	if err != nil {
@@ -241,12 +241,11 @@ func getAPIRooms(w http.ResponseWriter, r *http.Request) {
 		var name string
 		var cW int
 		var cH int
-		var strokes []Stroke
 		var strokeCount int
 		var createdAt time.Time
 		var watcherCount int
 
-		err = rows.Scan(&id, &strokeCount, &name, &cW, &cH, &createdAt, &strokes, &watcherCount)
+		err = rows.Scan(&id, &strokeCount, &name, &cW, &cH, &createdAt, &watcherCount)
 
 		room := &Room{
 			ID:           id,
@@ -254,7 +253,7 @@ func getAPIRooms(w http.ResponseWriter, r *http.Request) {
 			CanvasWidth:  cW,
 			CanvasHeight: cH,
 			CreatedAt:    createdAt,
-			Strokes:      strokes,
+			Strokes:      []Stroke{},
 			StrokeCount:  strokeCount,
 			WatcherCount: watcherCount,
 		}
