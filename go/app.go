@@ -205,7 +205,7 @@ func postAPICsrfToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func inAPIRooms(ids []RoomsRes) string {
-	in := make([]string, len(ids))
+	in := []string{}
 	for _, id := range ids {
 		i := strconv.FormatInt(id.RoomID, 10)
 		in = append(in, i)
