@@ -625,6 +625,8 @@ func main() {
 	defer dbx.Close()
 
 	mux := goji.NewMux()
+	mux.HandleFunc(pat.Get("/startprof"), starProf)
+	mux.HandleFunc(pat.Get("/endprof"), endProf)
 	mux.HandleFunc(pat.Post("/api/csrf_token"), postAPICsrfToken)
 	mux.HandleFunc(pat.Get("/api/rooms"), getAPIRooms)
 	mux.HandleFunc(pat.Post("/api/rooms"), postAPIRooms)
