@@ -193,24 +193,11 @@ func postAPICsrfToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		outputError(w, err)
-		return
-	}
-
-	t := Token{}
-	query = "SELECT `id`, `csrf_token`, `created_at` FROM `tokens` WHERE id = ?"
-	err = dbx.Get(&t, query, id)
-	if err != nil {
-		outputError(w, err)
-		return
-	}
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 
 	b, _ := json.Marshal(struct {
 		Token string `json:"token"`
-	}{Token: t.CSRFToken})
+	}{Token: token})
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(b)
