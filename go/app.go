@@ -232,7 +232,7 @@ func getAPIRooms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	q := fmt.Sprintf("SELECT rooms.id, count(strokes.id), rooms.name, rooms.canvas_width, rooms.canvas_height, rooms.created_at, rooms.watcher_count FROM rooms INNER JOIN strokes ON strokes.room_id = rooms.id WHERE rooms.id IN ( %s ) GROUP BY rooms.id", inAPIRooms(res))
+	q := fmt.Sprintf("SELECT rooms.id, count(strokes.id), rooms.name, rooms.canvas_width, rooms.canvas_height, rooms.created_at FROM rooms INNER JOIN strokes ON strokes.room_id = rooms.id WHERE rooms.id IN ( %s ) GROUP BY rooms.id", inAPIRooms(res))
 	log.Println(q)
 	rows, err := dbx.Query(q)
 	if err != nil {
