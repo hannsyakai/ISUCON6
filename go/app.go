@@ -324,7 +324,7 @@ func postAPIRooms(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx := dbx.MustBegin()
-	query := "INSERT INTO `rooms2` (`name`, `canvas_width`, `canvas_height`, `watchers_count`, `owner_id`)"
+	query := "INSERT INTO `rooms2` (`name`, `canvas_width`, `canvas_height`, `watcher_count`, `owner_id`)"
 	query += " VALUES (?, ?, ?, ?)"
 
 	result := tx.MustExec(query, postedRoom.Name, postedRoom.CanvasWidth, postedRoom.CanvasHeight, 0, t.ID)
