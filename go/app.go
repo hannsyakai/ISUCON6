@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
@@ -183,10 +184,10 @@ func outputError(w http.ResponseWriter, err error) {
 }
 
 func postAPICsrfToken(w http.ResponseWriter, r *http.Request) {
-	query := "INSERT INTO `tokens` (`csrf_token`) VALUES"
-	query += " (SHA2(CONCAT(RAND(), UUID_SHORT()), 256))"
+	token := strconv.Itoa(rand.Intn(10000000))
+	query := "INSERT INTO `tokens` (`csrf_token`) VALUES (?)"
 
-	result, err := dbx.Exec(query)
+	result, err := dbx.Exec(query, token)
 	if err != nil {
 		outputError(w, err)
 		return
@@ -590,6 +591,7 @@ func postAPIStrokesRoomsID(ctx context.Context, w http.ResponseWriter, r *http.R
 }
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
 	host := os.Getenv("MYSQL_HOST")
 	if host == "" {
 		host = "localhost"
