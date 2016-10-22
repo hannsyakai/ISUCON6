@@ -53,3 +53,14 @@ CREATE TABLE `room_owners` (
   `token_id` bigint(20) NOT NULL,
   UNIQUE KEY (`room_id`, `token_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `rooms2` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `canvas_width` int(10) unsigned NOT NULL,
+  `canvas_height` int(10) unsigned NOT NULL,
+  `watcher_count` int(10) unsigned NOT NULL,
+  `owner_id` bigint(20) NOT NULL,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
