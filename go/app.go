@@ -218,6 +218,11 @@ type RoomsRes struct {
 	MaxID  int64 `db:"max_id"`
 }
 
+type CountRes struct {
+	Count  int64 `db:"count"`
+	RoomID int64 `db:"room_id"`
+}
+
 func getAPIRooms(w http.ResponseWriter, r *http.Request) {
 	res := []RoomsRes{}
 	subq := "SELECT `room_id` FROM `strokes` GROUP BY `room_id` ORDER BY MAX(id) DESC LIMIT 100"
@@ -258,6 +263,26 @@ func getAPIRooms(w http.ResponseWriter, r *http.Request) {
 			WatcherCount: watcherCount,
 		}
 		rooms = append(rooms, room)
+	}
+	rows.Close()
+
+	query := fmt.Sprintf("SELECT room_id, COUNT(*) AS `count` FROM `room_watchers` WHERE `room_id` IN ( %s ) AND `updated_at` > CURRENT_TIMESTAMP(6) - INTERVAL 3 SECOND GROUP BY room_id", inAPIRooms(res))
+	rows, err = dbx.Query(query)
+	if err != nil {
+		outputError(w, err)
+		return
+	}
+
+	for rows.Next() {
+		var roomID int64
+		var count int
+		rows.Scan(&roomID, &count)
+		for _, room := range rooms {
+			if room.ID == roomID {
+				room.WatcherCount = count
+				break
+			}
+		}
 	}
 	rows.Close()
 
