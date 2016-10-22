@@ -623,6 +623,8 @@ func main() {
 		log.Fatalf("Failed to connect to DB: %s.", err.Error())
 	}
 	defer dbx.Close()
+	dbx.SetMaxOpenConns(16)
+	dbx.SetMaxIdleConns(16)
 
 	mux := goji.NewMux()
 	mux.HandleFunc(pat.Get("/startprof"), starProf)
