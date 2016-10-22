@@ -19,20 +19,20 @@ function restartServer() {
 
 gulp.task('default', ['build']);
 
-gulp.task('build', ['server', 'browser']);
+gulp.task('build', ['server']);
 
 gulp.task('clean', () => {
   return del(['build']);
 });
 
-gulp.task('watch', ['server', 'browser'], () => {
-  const watcher = gulp.watch('**/*.jsx', ['browser', 'server']);
+gulp.task('watch', ['server'], () => {
+  const watcher = gulp.watch('**/*.jsx', ['server']);
   watcher.on('change', restartServer);
   watcher.on('start', restartServer);
   restartServer();
 });
 
-gulp.task('start', ['server', 'browser'], () => {
+gulp.task('start', ['server'], () => {
   return new Promise((resolve, reject) => {
     restartServer();
     server.on('exit', resolve);
