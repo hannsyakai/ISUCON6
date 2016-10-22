@@ -127,7 +127,7 @@ func getStrokes(roomID int64, greaterThanID int64) ([]Stroke, error) {
 }
 
 func getRoom(roomID int64) (*Room, error) {
-	query := "SELECT `id`, `name`, `canvas_width`, `canvas_height`, `created_at` FROM `rooms` WHERE `id` = ?"
+	query := "SELECT `id`, `name`, `canvas_width`, `canvas_height`, `created_at` FROM `rooms2` WHERE `id` = ?"
 	r := &Room{}
 	err := dbx.Get(r, query, roomID)
 	if err != nil {
@@ -139,8 +139,7 @@ func getRoom(roomID int64) (*Room, error) {
 }
 
 func getWatcherCount(roomID int64) (int, error) {
-	query := "SELECT COUNT(*) AS `watcher_count` FROM `room_watchers`"
-	query += " WHERE `room_id` = ? AND `updated_at` > CURRENT_TIMESTAMP(6) - INTERVAL 3 SECOND"
+	query := "SELECT `watcher_count` FROM `rooms2` WHERE `id` = ? AND `updated_at` > CURRENT_TIMESTAMP(6) - INTERVAL 3 SECOND"
 
 	var watcherCount int
 	err := dbx.QueryRow(query, roomID).Scan(&watcherCount)
@@ -154,10 +153,27 @@ func getWatcherCount(roomID int64) (int, error) {
 }
 
 func updateRoomWatcher(roomID int64, tokenID int64) error {
-	query := "INSERT INTO `room_watchers` (`room_id`, `token_id`) VALUES (?, ?)"
-	query += " ON DUPLICATE KEY UPDATE `updated_at` = CURRENT_TIMESTAMP(6)"
+	isExsit := true
+	q := "SELECT room_id FROM `room_watchers` WHERE `room_id` = ? AND `token_id` = ?"
+	_, err := dbx.Exec(q, roomID, tokenID)
+	if err == sql.ErrNoRows {
+		isExsit = false
+	}
+	query := "INSERT INTO `room_watchers` (`room_id`, `token_id`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `updated_at` = CURRENT_TIMESTAMP(6)"
+	_, err = dbx.Exec(query, roomID, tokenID)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
 
-	_, err := dbx.Exec(query, roomID, tokenID)
+	if !isExsit {
+		q = "UPDATE `rooms2` SET room_watchers = room_watchers + 1 WHERE `id` = ?"
+		_, err := dbx.Exec(q, roomID)
+		if err != nil {
+			return err
+		}
+	}
+
 	return err
 }
 
@@ -227,7 +243,7 @@ func getAPIRooms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	q := fmt.Sprintf("SELECT rooms.id, count(strokes.id), rooms.name, rooms.canvas_width, rooms.canvas_height, rooms.created_at, rooms.watcher_count FROM rooms INNER JOIN strokes ON strokes.room_id = rooms.id WHERE rooms.id IN ( %s ) GROUP BY rooms.id", inAPIRooms(res))
+	q := fmt.Sprintf("SELECT rooms2.id, count(strokes.id), rooms2.name, rooms2.canvas_width, rooms2.canvas_height, rooms2.created_at FROM rooms2 INNER JOIN strokes ON strokes.room_id = rooms2.id WHERE rooms2.id IN ( %s ) GROUP BY rooms2.id", inAPIRooms(res))
 	log.Println(q)
 	rows, err := dbx.Query(q)
 	if err != nil {
@@ -243,9 +259,8 @@ func getAPIRooms(w http.ResponseWriter, r *http.Request) {
 		var cH int
 		var strokeCount int
 		var createdAt time.Time
-		var watcherCount int
 
-		err = rows.Scan(&id, &strokeCount, &name, &cW, &cH, &createdAt, &watcherCount)
+		err = rows.Scan(&id, &strokeCount, &name, &cW, &cH, &createdAt)
 
 		room := &Room{
 			ID:           id,
@@ -255,11 +270,17 @@ func getAPIRooms(w http.ResponseWriter, r *http.Request) {
 			CreatedAt:    createdAt,
 			Strokes:      []Stroke{},
 			StrokeCount:  strokeCount,
-			WatcherCount: watcherCount,
 		}
 		rooms = append(rooms, room)
 	}
 	rows.Close()
+	for i, r := range rooms {
+		cnt, err := getWatcherCount(r.ID)
+		if err != nil {
+			log.Println(err)
+		}
+		rooms[i].WatcherCount = cnt
+	}
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 
@@ -303,10 +324,10 @@ func postAPIRooms(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx := dbx.MustBegin()
-	query := "INSERT INTO `rooms` (`name`, `canvas_width`, `canvas_height`)"
-	query += " VALUES (?, ?, ?)"
+	query := "INSERT INTO `rooms2` (`name`, `canvas_width`, `canvas_height`, `watchers_count`, `owner_id`)"
+	query += " VALUES (?, ?, ?, ?)"
 
-	result := tx.MustExec(query, postedRoom.Name, postedRoom.CanvasWidth, postedRoom.CanvasHeight)
+	result := tx.MustExec(query, postedRoom.Name, postedRoom.CanvasWidth, postedRoom.CanvasHeight, 0, t.ID)
 	roomID, err := result.LastInsertId()
 	if err != nil {
 		outputError(w, err)
