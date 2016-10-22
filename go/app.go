@@ -176,7 +176,7 @@ func appendImage(roomID int64, stroke Stroke) error {
 		m2.Write([]byte(s))
 	}
 
-	a := fmt.Sprintf(`<polyline id="%s" stroke="rgba(%d%d%d%f)" stroke-width="%d" stroke-linecap="round" fill="none" points="%s"></polyline>'`, stroke.ID, stroke.Red, stroke.Green, stroke.Blue, stroke.Alpha, m2.String())
+	a := fmt.Sprintf(`<polyline id="%s" stroke="rgba(%d%d%d%f)" stroke-width="%d" stroke-linecap="round" fill="none" points="%s"></polyline>'`, stroke.ID, stroke.Red, stroke.Green, stroke.Blue, stroke.Alpha, stroke.Width, m2.String())
 
 	query := "UPDATE img SET img = ? where room_id = ?"
 	_, err := dbx.Exec(query, a, roomID)
