@@ -609,6 +609,24 @@ func main() {
 	password := os.Getenv("MYSQL_PASS")
 	dbname := "isuketch"
 
+	openConn := 16
+	openConnStr := os.Getenv("OPEN_CONN")
+	if openConnStr != "" {
+		i, err := strconv.Atoi(openConnStr)
+		if err == nil {
+			openConn = i
+		}
+	}
+
+	idleConn := 16
+	idleConnStr := os.Getenv("IDLE_CONN")
+	if idleConnStr != "" {
+		i, err := strconv.Atoi(idleConnStr)
+		if err == nil {
+			idleConn = i
+		}
+	}
+
 	dsn := fmt.Sprintf(
 		"%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=true&loc=Local",
 		user,
@@ -623,6 +641,8 @@ func main() {
 		log.Fatalf("Failed to connect to DB: %s.", err.Error())
 	}
 	defer dbx.Close()
+	dbx.SetMaxOpenConns(openConn)
+	dbx.SetMaxIdleConns(idleConn)
 
 	mux := goji.NewMux()
 	mux.HandleFunc(pat.Get("/startprof"), starProf)
