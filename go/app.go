@@ -161,12 +161,12 @@ func updateRoomWatcher(roomID int64, tokenID int64) error {
 	return err
 }
 
-func createImage(roomID int64) error {
+func createImage(roomID int64, width int, height int) error {
 	query := "INSERT INTO img(room_id, img) values(?, ?)"
-	_, err := dbx.Exec(query, roomID, `<?xml version="1.0" standalone="no"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">`)
+	a := fmt.Sprintf(`<?xml version="1.0" standalone="no"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg xmlns="http://www.w3.org/2000/svg" version="1.1" baseProfile="full" width="%d" height="%d" style="width:1028px;height:768px;background-color:white;" viewBox="0 0 %d %d">`, width, height, width, height)
+	_, err := dbx.Exec(query, roomID, a)
 	return err
 }
-
 func appendImage(roomID int64, stroke Stroke) error {
 	var m2 bytes.Buffer
 	var s string
@@ -175,8 +175,8 @@ func appendImage(roomID int64, stroke Stroke) error {
 		s = fmt.Sprintf("%f, %f ", p.X, p.Y)
 		m2.Write([]byte(s))
 	}
-
-	a := fmt.Sprintf(`<polyline id="%s" stroke="rgba(%d%d%d%f)" stroke-width="%d" stroke-linecap="round" fill="none" points="%s"></polyline>'`, stroke.ID, stroke.Red, stroke.Green, stroke.Blue, stroke.Alpha, stroke.Width, m2.String())
+b , _ := getImage(roomID)
+	a := fmt.Sprintf(`%s<polyline id="%d" stroke="rgba(%d,%d,%d,%f)" stroke-width="%d" stroke-linecap="round" fill="none" points="%s"></polyline>`, b , stroke.ID, stroke.Red, stroke.Green, stroke.Blue, stroke.Alpha, stroke.Width, m2.String())
 
 	query := "UPDATE img SET img = ? where room_id = ?"
 	_, err := dbx.Exec(query, a, roomID)
@@ -340,7 +340,7 @@ func postAPIRooms(w http.ResponseWriter, r *http.Request) {
 	query = "INSERT INTO `room_owners` (`room_id`, `token_id`) VALUES (?, ?)"
 	tx.MustExec(query, roomID, t.ID)
 
-	err = createImage(roomID)
+	err = createImage(roomID, postedRoom.CanvasWidth, postedRoom.CanvasHeight)
 	if err != nil {
 		outputError(w, err)
 		return
@@ -724,7 +724,7 @@ func main() {
 	mux.HandleFunc(pat.Get("/api/rooms"), getAPIRooms)
 	mux.HandleFunc(pat.Post("/api/rooms"), postAPIRooms)
 	mux.HandleFuncC(pat.Get("/api/rooms/:id"), getAPIRoomsID)
-	mux.HandleFuncC(pat.Get("/api/rooms/:id"), getIMGRoomsID)
+	mux.HandleFuncC(pat.Get("/img/:id"), getIMGRoomsID)
 	mux.HandleFuncC(pat.Get("/api/stream/rooms/:id"), getAPIStreamRoomsID)
 	mux.HandleFuncC(pat.Post("/api/strokes/rooms/:id"), postAPIStrokesRoomsID)
 
