@@ -1,7 +1,5 @@
 import gulp from 'gulp';
 import babel from 'gulp-babel';
-import webpack from 'webpack-stream';
-import webpackConfig from './webpack.config.js';
 import {spawn} from 'child_process';
 import del from 'del';
 
@@ -44,13 +42,6 @@ gulp.task('start', ['server', 'browser'], () => {
 gulp.task('server', () => {
   return gulp.src(['**/*.jsx'])
     .pipe(babel())
-    .on('error', swallowError)
-    .pipe(gulp.dest('build'));
-});
-
-gulp.task('browser', () => {
-  return gulp.src(['browser.js'])
-    .pipe(webpack(webpackConfig))
     .on('error', swallowError)
     .pipe(gulp.dest('build'));
 });
